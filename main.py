@@ -4,11 +4,15 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from mediapipe.framework.formats import landmark_pb2
 import time
-import copy
+import cursor_control
 
 # Needs to be global for it to store properly
 # This is because the print_result callback function is running async
 latest_result = None
+
+# Initial x y value will need to be replaced when previous_xy is none
+previous_xy = None
+
 
 def convert_landmarks_to_pb(landmark_list):
     # Convert the MediaPipe task landmarks to core framework landmarks
@@ -86,7 +90,9 @@ def main():
             # Draw landmarks if available
 
             # Draw landmarks if available
+            
             if latest_result and latest_result.hand_landmarks:
+                
                 for hand_landmarks in latest_result.hand_landmarks:
                     # Convert list of landmarks into a format draw_landmarks can process
                     # landmark_list = mp.solutions.hands.HandLandmark  # Correct structure
@@ -100,6 +106,19 @@ def main():
                         mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=3),  # Landmark style
                         mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2)  # Connection style
                     )
+
+                print(latest_result.hand_landmarks[0][8].x)
+                current_res = latest_result.hand_landmarks[0][8]
+
+                if previous_xy == None:
+                    previous_xy == (current_res.x, current_res.y)
+                else:
+                    vector_movement = (
+                        current_res.x - previous_xy[0],
+                        current_res.y - previous_xy[1]
+                    )
+
+
 
             cv.imshow("Video", frame)
 
