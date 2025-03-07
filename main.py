@@ -8,10 +8,19 @@ from cursor_control import move_mouse
 
 # Needs to be global for it to store properly
 # This is because the print_result callback function is running async
-latest_result = None
+latest_result : list = None
 
 # Initial x y value will need to be replaced when previous_xy is none
-previous_xy = None
+previous_xy : tuple = None
+
+# Attempt to reduce the effect the shakiness of the model has on the cursor
+def modify_vector_movement(vec: tuple):
+    x, y = vec[0], vec[1]
+    if abs(x) < 0.003:
+        x = 0
+    if abs(y) < 0.003:
+        y = 0
+    return (x*100, y*100)
 
 
 def convert_landmarks_to_pb(landmark_list):
@@ -32,12 +41,12 @@ def convert_landmarks_to_pb(landmark_list):
 
 def main():
     # Camera set up
-    capture = cv.VideoCapture(0)
+    capture : cv.VideoCapture = cv.VideoCapture(0)
     capture.set(cv.CAP_PROP_FRAME_HEIGHT, 2000)
     capture.set(cv.CAP_PROP_FRAME_WIDTH, 2000)
 
     # Loading mediapipe hand landmarks
-    mp_hand_model_path = "model/hand_landmarker.task"
+    mp_hand_model_path : str = "model/hand_landmarker.task"
 
     BaseOptions = mp.tasks.BaseOptions
     HandLandmarker = mp.tasks.vision.HandLandmarker
@@ -65,7 +74,7 @@ def main():
         running_mode=VisionRunningMode.LIVE_STREAM,
         result_callback=print_result,
         num_hands=1
-        )
+    )
 
     with HandLandmarker.create_from_options(options) as landmarker:
         while True:
@@ -92,6 +101,7 @@ def main():
             # Draw landmarks if available
             
             if latest_result and latest_result.hand_landmarks:
+                # # This is to draw the landmarks onto the video feedback
                 # for hand_landmarks in latest_result.hand_landmarks:
                 #     # Convert list of landmarks into a format draw_landmarks can process
                 #     # landmark_list = mp.solutions.hands.HandLandmark  # Correct structure
@@ -106,26 +116,29 @@ def main():
                 #         mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2)  # Connection style
                 #     )
 
-                # print(latest_result.hand_landmarks[0][8].x)
-                current_res = latest_result.hand_landmarks[0][8]
+                current_res: landmark_pb2.NormalizedLandmark = latest_result.hand_landmarks[0][8]
 
                 # Needs to be a global variable to change properly
                 global previous_xy
                 if previous_xy == None:
                     previous_xy = (current_res.x, current_res.y)
                 else:
+                    # TODO: Print out current_res - previous_xy, try to see if we can discretized the values
+                    # This will make it more stable
                     vector_movement = (
                         current_res.x - previous_xy[0],
                         current_res.y - previous_xy[1]
                     )
-                    # print(vector_movement)
+                    print(modify_vector_movement(vector_movement))
                     
-                    move_mouse(vector_movement, 5000)
+                    move_mouse(modify_vector_movement(vector_movement), 25)
 
                     previous_xy = (current_res.x, current_res.y)
             else:
+                # This is put here in case your hand leaves the screen, when it comes back the vector_movement won't be insanely large
                 previous_xy = None
-
+            
+            # play video for debugging purposes
             # cv.imshow("Video", frame)
 
             # if cv.waitKey(10) & 0xFF == ord('d'):
